@@ -65,6 +65,8 @@ def init_sqlalchemy(dbname):
 
 
 def fingerclean(name):
+    # TODO: Replace this string in Normdatei?
+    name = name.replace("Frhr.", "Freiherr")
     return fingerprint(clean_name(name))
 
 
