@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from tqdm import tqdm
+from Levenshtein import distance
 
 from jsons import get_json
 
@@ -86,10 +87,14 @@ def run_for(SESSION, tops_path):
     results = []
     offset = 0
     for index, entry in enumerate(json_data):
-        logging.info('%s -> %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
-        while fingerclean(entry['speaker']) != fingerclean(plpr[index + offset].speaker_cleaned):
-            logging.info('%s ... %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
+        cleaned_top_speaker = fingerclean(entry['speaker'])
+        cleaned_protocol_speaker = fingerclean(plpr[index + offset].speaker_cleaned)
+        while distance(cleaned_protocol_speaker, cleaned_top_speaker) > 3:
+            logging.info('Comparing: %s ... %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
             offset += 1
+            cleaned_top_speaker = fingerclean(entry['speaker'])
+            cleaned_protocol_speaker = fingerclean(plpr[index + offset].speaker_cleaned)
+        logging.info('Match: %s -> %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
         if not results or results[-1]['topic'] != entry['top']:
             results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top']})
 
