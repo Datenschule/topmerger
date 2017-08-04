@@ -2,9 +2,9 @@ import logging
 
 import click
 from normdatei.text import fingerprint, clean_name
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from tqdm import tqdm
 from Levenshtein import distance
 
@@ -44,9 +44,9 @@ class Utterance(Base):
     sequence = Column(Integer)
     speaker_cleaned = Column(String)
     speaker_party = Column(String)
-    top = Column(String)
     type = Column(String)
     text = Column(String)
+    top_id = Column('top_id', Integer, ForeignKey("tops.id"), nullable=True)
 
     @staticmethod
     def get_all(wahlperiode, sitzung, session):
@@ -55,6 +55,28 @@ class Utterance(Base):
             .filter(Utterance.wahlperiode == wahlperiode) \
             .order_by(Utterance.sequence) \
             .all()
+
+
+class Top(Base):
+    __tablename__ = "tops"
+    id = Column(Integer, primary_key=True)
+    wahlperiode = Column(Integer)
+    sitzung = Column(Integer)
+    title = Column(String)
+
+    def save(self):
+        try:
+            DBSession.add(self)
+            DBSession.commit()
+        except:
+            DBSession.rollback()
+
+    @staticmethod
+    def delete_for_session(wahlperiode, sitzung):
+        DBSession.query(Top) \
+            .filter_by(wahlperiode=wahlperiode) \
+            .filter_by(sitzung=sitzung) \
+            .delete()
 
 
 def init_sqlalchemy(dbname):
@@ -100,23 +122,26 @@ def run_for(SESSION, tops_path):
         if not results or results[-1]['topic'] != entry['top']:
             results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top']})
 
-    update_utterances(utterances, results)
+    update_utterances(utterances, results, SESSION)
 
     DBSession.bulk_save_objects(utterances)
     DBSession.commit()
 
 
-def update_utterances(utterances, results):
+def update_utterances(utterances, results, session):
     last_utterance = 0
+    Top.delete_for_session(18, session)
     for index in range(len(results)):
         current_top = results[index]
         try:
             next_top = results[index + 1]
         except IndexError:
             next_top = {'sequence': 100000000}
+        top = Top(wahlperiode=18, sitzung=session, title=current_top['topic'])
+        top.save()
         for u in utterances[last_utterance:]:
             if u.sequence < next_top['sequence']:
-                u.top = current_top['topic']
+                u.top_id = top.id
             else:
                 last_utterance = u.sequence
                 break
