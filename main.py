@@ -9,23 +9,31 @@ from tqdm import tqdm
 from Levenshtein import distance
 
 from jsons import get_json
+from merger_utility import *
 
 
 @click.command()
 @click.option('--db_url', required=True, default='postgres://postgres@0.0.0.0:32780')
 @click.option('--tops_path', type=click.Path(exists=True), required=True)
+@click.option('--session_path', type=click.Path(exists=True), required=True)
+@click.option('--classes_path', type=click.Path(exists=True), required=True)
 @click.option('--verbose', is_flag=True)
 @click.option('--start', type=click.INT, default=0)
 @click.option('--end', type=click.INT, default=245)
-def main(db_url, tops_path, verbose, start, end):
+def main(db_url, tops_path, session_path, classes_path, verbose, start, end):
     """Merge Utterances from a db with topics from a json file"""
+    cleaned_classes = simplify_classes(classes_path)
+    speaker = get_json_file(tops_path)
+    detail = get_json_file(session_path)
+    merged_tops = json_top_merge(speaker, detail, cleaned_classes)
+    write_json_file('data/merged.json', merged_tops)
     if verbose:
         logging.basicConfig(level=logging.INFO)
-
     init_sqlalchemy(dbname=db_url)
     for i in tqdm(range(start, end)):
         try:
-            run_for(i, tops_path)
+            # run_for(i, tops_path)
+            run_for(i, 'data/merged.json')
         except Exception as e:
             print("Failed with {} for {}".format(e, i))
 
@@ -63,12 +71,20 @@ class Top(Base):
     wahlperiode = Column(Integer)
     sitzung = Column(Integer)
     title = Column(String)
+    title_clean = Column(String)
+    description = Column(String)
+    number = Column(String)
+    week = Column(Integer)
+    detail = Column(String)
+    year = Column(Integer)
+    category = Column(String)
 
     def save(self):
         try:
             DBSession.add(self)
             DBSession.commit()
-        except:
+        except Exception as se:
+            print(se)
             DBSession.rollback()
 
     @staticmethod
@@ -103,9 +119,7 @@ def get_speaker_sequence(utterances):
 
 def run_for(SESSION, tops_path):
     utterances = Utterance.get_all(18, SESSION, DBSession)
-
     plpr = get_speaker_sequence(utterances)
-
     json_data = get_json(tops_path, SESSION)
 
     results = []
@@ -120,7 +134,7 @@ def run_for(SESSION, tops_path):
             cleaned_protocol_speaker = fingerclean(plpr[index + offset].speaker_cleaned)
         logging.info('Match: %s -> %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
         if not results or results[-1]['topic'] != entry['top']:
-            results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top']})
+            results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top'], 'top_obj': entry['top_obj']})
 
     update_utterances(utterances, results, SESSION)
 
@@ -137,7 +151,18 @@ def update_utterances(utterances, results, session):
             next_top = results[index + 1]
         except IndexError:
             next_top = {'sequence': 100000000}
-        top = Top(wahlperiode=18, sitzung=session, title=current_top['topic'])
+        top_obj = current_top['top_obj'];
+        top = Top(wahlperiode=18,
+                  sitzung=session,
+                  title=current_top['topic'],
+                  category=";".join(top_obj['categories']),
+                  description=top_obj['description'] if 'description' in top_obj.keys() else None,
+                  detail=top_obj['detail'] if 'detail' in top_obj.keys() else None,
+                  number=top_obj['number'] if 'number' in top_obj.keys() else None,
+                  title_clean=top_obj['title_clean'] if 'title_clean' in top_obj.keys() else None,
+                  week=top_obj['week'] if 'week' in top_obj.keys() else None,
+                  year=top_obj['year'] if 'year' in top_obj.keys() else None
+                  )
         top.save()
         for u in utterances[last_utterance:]:
             if u.sequence < next_top['sequence']:
