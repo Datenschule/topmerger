@@ -1,8 +1,10 @@
 import logging
 
 import click
+import locale
+from datetime import datetime
 from normdatei.text import fingerprint, clean_name
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from tqdm import tqdm
@@ -78,6 +80,8 @@ class Top(Base):
     detail = Column(String)
     year = Column(Integer)
     category = Column(String)
+    duration = Column(Integer)
+    held_on = Column(Date)
 
     def save(self):
         try:
@@ -151,7 +155,11 @@ def update_utterances(utterances, results, session):
             next_top = results[index + 1]
         except IndexError:
             next_top = {'sequence': 100000000}
-        top_obj = current_top['top_obj'];
+        top_obj = current_top['top_obj']
+        loc = locale.setlocale(locale.LC_TIME,("de_DE"))
+        date = None
+        if 'date' in top_obj.keys() and len(top_obj['date']) > 0:
+            date = datetime.strptime( top_obj['date'], "%d. %B %Y")
         top = Top(wahlperiode=18,
                   sitzung=session,
                   title=current_top['topic'],
@@ -161,7 +169,9 @@ def update_utterances(utterances, results, session):
                   number=top_obj['number'] if 'number' in top_obj.keys() else None,
                   title_clean=top_obj['title_clean'] if 'title_clean' in top_obj.keys() else None,
                   week=top_obj['week'] if 'week' in top_obj.keys() else None,
-                  year=top_obj['year'] if 'year' in top_obj.keys() else None
+                  year=top_obj['year'] if 'year' in top_obj.keys() else None,
+                  duration=top_obj['duration'] if 'duration' in top_obj.keys() else None,
+                  held_on=date
                   )
         top.save()
         for u in utterances[last_utterance:]:

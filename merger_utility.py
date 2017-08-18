@@ -1,6 +1,8 @@
 from itertools import groupby
 from collections import defaultdict
+from datetime import datetime
 import re
+import locale
 
 import json
 
@@ -27,6 +29,8 @@ def json_top_merge(session_speaker, session_detail, session_classes):
                 top['detail'] = detail['detail']
                 top['year'] = detail['year']
                 top['week'] = detail['week']
+                top['duration'] = detail['duration']
+                top['date'] = detail['date']
             new_tops.append(top)
         session['tops'] = new_tops
         new_sessions.append(session)
