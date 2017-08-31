@@ -6,6 +6,7 @@ def get_json(filepath, number):
         tops = json.load(infile)
         tops = next(top for top in tops if top['session'] == '18/{}'.format(number))
 
+    date = tops['date']
     tops = [top for top in tops['tops'] if len(top['speakers']) > 1]
 
     presidents = ["Lammert, Prof. Dr. Norbert",
@@ -21,7 +22,7 @@ def get_json(filepath, number):
 
     all_speakers = []
     for top in tops:
-        all_speakers += [{'speaker': s, 'top': top['topic'], 'top_obj': top} for s in top['speakers'] if s not in presidents]
+        all_speakers += [{'speaker': s, 'top': top['topic'], 'top_obj': top, 'date': date} for s in top['speakers'] if s not in presidents]
 
     new = []
     for s in all_speakers:

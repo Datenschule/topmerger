@@ -6,6 +6,7 @@ import locale
 
 import json
 
+
 def json_top_merge(session_speaker, session_detail, session_classes):
     new_sessions = []
     for session in session_speaker:
@@ -30,19 +31,21 @@ def json_top_merge(session_speaker, session_detail, session_classes):
                 top['year'] = detail['year']
                 top['week'] = detail['week']
                 top['duration'] = detail['duration']
-                top['date'] = detail['date']
             new_tops.append(top)
         session['tops'] = new_tops
         new_sessions.append(session)
     return new_sessions
 
+
 def get_json_file(filename):
     with open(filename) as data:
         return json.load(data)
 
+
 def write_json_file(filename, data):
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
+
 
 def simplify_classes(filepath):
     with open(filepath) as infile:

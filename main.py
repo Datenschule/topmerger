@@ -1,12 +1,10 @@
 import logging
 
 import click
-import locale
-from datetime import datetime
 from normdatei.text import fingerprint, clean_name
 from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship
+from sqlalchemy.orm import sessionmaker, scoped_session
 from tqdm import tqdm
 from Levenshtein import distance
 
@@ -38,6 +36,7 @@ def main(db_url, tops_path, session_path, classes_path, verbose, start, end):
             run_for(i, 'data/merged.json')
         except Exception as e:
             print("Failed with {} for {}".format(e, i))
+    add_missing_tops()
 
 
 Base = declarative_base()
@@ -82,6 +81,7 @@ class Top(Base):
     category = Column(String)
     duration = Column(Integer)
     held_on = Column(Date)
+    sequence = Column(Integer)
 
     def save(self):
         try:
@@ -90,6 +90,15 @@ class Top(Base):
         except Exception as se:
             print(se)
             DBSession.rollback()
+
+    @staticmethod
+    def find(wahlperiode, sitzung, title ):
+        return DBSession.query(Top) \
+                        .filter(Top.wahlperiode == wahlperiode) \
+                        .filter(Top.sitzung == sitzung) \
+                        .filter(Top.title == title) \
+                        .one_or_none()
+
 
     @staticmethod
     def delete_for_session(wahlperiode, sitzung):
@@ -138,7 +147,7 @@ def run_for(SESSION, tops_path):
             cleaned_protocol_speaker = fingerclean(plpr[index + offset].speaker_cleaned)
         logging.info('Match: %s -> %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
         if not results or results[-1]['topic'] != entry['top']:
-            results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top'], 'top_obj': entry['top_obj']})
+            results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top'], 'top_obj': entry['top_obj'], 'date': entry['date']})
 
     update_utterances(utterances, results, SESSION)
 
@@ -156,21 +165,21 @@ def update_utterances(utterances, results, session):
         except IndexError:
             next_top = {'sequence': 100000000}
         top_obj = current_top['top_obj']
-        loc = locale.setlocale(locale.LC_TIME,("de_DE"))
         date = None
-        if 'date' in top_obj.keys() and len(top_obj['date']) > 0:
-            date = datetime.strptime( top_obj['date'], "%d. %B %Y")
+        if current_top.get('date'):
+            date = datetime.strptime(current_top['date'], "%Y-%m-%d")
         top = Top(wahlperiode=18,
                   sitzung=session,
                   title=current_top['topic'],
                   category=";".join(top_obj['categories']),
-                  description=top_obj['description'] if 'description' in top_obj.keys() else None,
-                  detail=top_obj['detail'] if 'detail' in top_obj.keys() else None,
-                  number=top_obj['number'] if 'number' in top_obj.keys() else None,
-                  title_clean=top_obj['title_clean'] if 'title_clean' in top_obj.keys() else None,
-                  week=top_obj['week'] if 'week' in top_obj.keys() else None,
-                  year=top_obj['year'] if 'year' in top_obj.keys() else None,
-                  duration=top_obj['duration'] if 'duration' in top_obj.keys() else None,
+                  description=top_obj.get('description'),
+                  detail=top_obj.get('detail'),
+                  number=top_obj.get('number'),
+                  title_clean=top_obj.get('title_clean'),
+                  week=top_obj.get('week'),
+                  year=top_obj.get('year'),
+                  duration=top_obj.get('duration'),
+                  sequence=top_obj.get('index'),
                   held_on=date
                   )
         top.save()
@@ -180,6 +189,37 @@ def update_utterances(utterances, results, session):
             else:
                 last_utterance = u.sequence
                 break
+
+
+def add_missing_tops():
+    print("Adding missing TOPS")
+    with open('data/merged.json') as infile:
+        data = json.load(infile)
+
+    for entry in data:
+        wahlperiode, sitzung = entry['session'].split('/')
+
+        for top in entry["tops"]:
+            if not Top.find(wahlperiode, sitzung, top['topic']):
+                date = None
+                if entry.get('date'):
+                    date = datetime.strptime(entry['date'], "%Y-%m-%d")
+                top = Top(wahlperiode=18,
+                          sitzung=sitzung,
+                          title=top['topic'],
+                          category=";".join(top['categories']),
+                          description=top.get('description'),
+                          detail=top.get('detail'),
+                          number=top.get('number'),
+                          title_clean=top.get('title_clean'),
+                          week=top.get('week'),
+                          year=top.get('year'),
+                          duration=top.get('duration'),
+                          sequence=top.get('index'),
+                          held_on=date
+                          )
+                top.save()
+
 
 
 if __name__ == "__main__":
