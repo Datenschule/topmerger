@@ -22,7 +22,7 @@ from merger_utility import *
 @click.option('--end', type=click.INT, default=245)
 def main(db_url, tops_path, session_path, classes_path, verbose, start, end):
     """Merge Utterances from a db with topics from a json file"""
-    cleaned_classes = simplify_classes(classes_path)
+    cleaned_classes = get_json_file(classes_path)
     speaker = get_json_file(tops_path)
     detail = get_json_file(session_path)
     merged_tops = json_top_merge(speaker, detail, cleaned_classes)
@@ -138,14 +138,24 @@ def run_for(SESSION, tops_path):
     results = []
     offset = 0
     for index, entry in enumerate(json_data):
+        plpr_offset = index + offset
+        if plpr_offset >= len(plpr):
+            print("PLPR Offset error for Session: {}".format(SESSION))
+            break
         cleaned_top_speaker = fingerclean(entry['speaker'])
         cleaned_protocol_speaker = fingerclean(plpr[index + offset].speaker_cleaned)
         while distance(cleaned_protocol_speaker, cleaned_top_speaker) > 3:
             logging.info('Comparing: %s ... %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
             offset += 1
+            plpr_offset = index + offset
+            if plpr_offset >= len(plpr):
+                print("PLPR Offset error for Session: {}".format(SESSION))
+                break
             cleaned_top_speaker = fingerclean(entry['speaker'])
             cleaned_protocol_speaker = fingerclean(plpr[index + offset].speaker_cleaned)
-        logging.info('Match: %s -> %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
+        plpr_offset = index + offset
+        if plpr_offset < len(plpr):
+            logging.info('Match: %s -> %s', entry['speaker'], plpr[index + offset].speaker_cleaned)
         if not results or results[-1]['topic'] != entry['top']:
             results.append({'sequence': plpr[index + offset].sequence, 'topic': entry['top'], 'top_obj': entry['top_obj'], 'date': entry['date']})
 
@@ -171,7 +181,7 @@ def update_utterances(utterances, results, session):
         top = Top(wahlperiode=18,
                   sitzung=session,
                   title=current_top['topic'],
-                  category=";".join(top_obj['categories']),
+                  category=top_obj['categories'],
                   description=top_obj.get('description'),
                   detail=top_obj.get('detail'),
                   number=top_obj.get('number'),
@@ -207,7 +217,7 @@ def add_missing_tops():
                 top = Top(wahlperiode=18,
                           sitzung=sitzung,
                           title=top['topic'],
-                          category=";".join(top['categories']),
+                          category=top['categories'],
                           description=top.get('description'),
                           detail=top.get('detail'),
                           number=top.get('number'),

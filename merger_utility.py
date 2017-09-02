@@ -15,14 +15,26 @@ def json_top_merge(session_speaker, session_detail, session_classes):
         print("merging tops for session: " + session_name)
         new_tops = []
         for top in session['tops']:
-            name = top['topic']
+            name = top['topic'].replace('\n', '')
             detail_top_list = [x for x in session_detail if name == 'TOP ' + x['number'] + ' ' + x['title']]
-            session_class_list = [x for x in session_classes if name == 'TOP ' + x['number'] + ' ' + x['title']]
+
+            categories = [session_class['categories_cleaned'] for session_class in session_classes
+                              if session_class['session'] == session_name and
+                            str(session_class['title']) in name]
+            if len(categories) == 0 and 'Sitzungseröffnung' not in name and 'Sitzungsende' not in name:
+                # print("Error for session " + session_name + " and TOP " + name)
+                print(session_name + ";" + repr(name) + ";" + session['date'])
+            else:
+                # print("Success for session " + session_name + " and TOP " + name)
+                i = 0
 
             detail = detail_top_list[0] if len(detail_top_list) > 0 else None
-            categories = session_class_list[0]['categories'] if len(session_class_list) > 0 else []
+            category = categories[0] if len(categories) > 0 else None
 
-            top['categories'] = categories
+            if not category:
+                print("Category is empty for session " + session_name + " and TOP " + name)
+
+            top['categories'] = category
             if (detail):
                 top['description'] = detail['description']
                 top['number'] = detail['number']
