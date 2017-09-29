@@ -82,6 +82,8 @@ class Top(Base):
     duration = Column(Integer)
     held_on = Column(Date)
     sequence = Column(Integer)
+    name = Column(String)
+    session_identifier = Column(String)
 
     def save(self):
         try:
@@ -190,7 +192,9 @@ def update_utterances(utterances, results, session):
                   year=top_obj.get('year'),
                   duration=top_obj.get('duration'),
                   sequence=top_obj.get('index'),
-                  held_on=date
+                  held_on=date,
+                  name=top_obj.get('name'),
+                  session_identifier=top_obj.get('session_identifier')
                   )
         top.save()
         for u in utterances[last_utterance:]:
@@ -226,7 +230,9 @@ def add_missing_tops():
                           year=top.get('year'),
                           duration=top.get('duration'),
                           sequence=top.get('index'),
-                          held_on=date
+                          held_on=date,
+                          name=top.get('name'),
+                          session_identifier=top.get('session_identifier')
                           )
                 top.save()
 

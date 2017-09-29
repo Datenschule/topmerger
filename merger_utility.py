@@ -6,6 +6,8 @@ import locale
 
 import json
 
+TOP_NAME_SPLIT_RX = re.compile('^((TOP|ZP)?[ ]*[0-9]*([a-z](\-[a-z])?)?(([IXV]*\.*[0-9]*\-*)* )*[ +,]*)*')
+
 
 def json_top_merge(session_speaker, session_detail, session_classes):
     new_sessions = []
@@ -35,6 +37,9 @@ def json_top_merge(session_speaker, session_detail, session_classes):
                 print("Category is empty for session " + session_name + " and TOP " + name)
 
             top['categories'] = category
+            top['name'] = TOP_NAME_SPLIT_RX.split(name)[-1].strip()
+            top['session_identifier'] = name.replace(top['name'], '').strip()
+
             if (detail):
                 top['description'] = detail['description']
                 top['number'] = detail['number']
