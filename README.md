@@ -12,5 +12,5 @@ pip install -r requirements.txt
 ## Run
 e.g: 
 ```
-python main.py --tops_path=/Users/knut/Desktop/all_topics.json --start=214 --end=216 --verbose
+--tops_path=data/tops.json --session_path=data/out.json --classes_path=data/classes.json --db_url=<DB_url>
 ```
