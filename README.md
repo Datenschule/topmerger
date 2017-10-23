@@ -12,5 +12,5 @@ pip install -r requirements.txt
 ## Run
 e.g: 
 ```
---tops_path=data/tops.json --session_path=data/out.json --classes_path=data/classes.json --db_url=<DB_url>
+main.py --tops_path=data/tops.json --session_path=data/out.json --classes_path=data/classes.json --db_url=<DB_url>
 ```
